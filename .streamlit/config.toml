@@ -1,0 +1,15 @@
+# Settings for the report viewer (uv run streamlit run ui/app.py).
+
+[server]
+# Only accept connections from this computer: the reports describe your holdings.
+address = "localhost"
+port = 8501
+headless = false
+
+[browser]
+# Don't send anonymous usage statistics to Streamlit.
+gatherUsageStats = false
+
+[client]
+# Hide the "Deploy" button: this viewer is for your own computer only.
+toolbarMode = "minimal"

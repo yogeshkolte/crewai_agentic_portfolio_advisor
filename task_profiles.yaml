@@ -1,0 +1,164 @@
+# Task profiles: the description and expected output of every task, in run order.
+#
+# Edit the text here; each task in crew.jsonc points to it ("description": "{description_<task>}"),
+# and changes take effect on the next run. Agent, context, checks, output file and parallel
+# settings stay in crew.jsonc.
+#
+# Layout: one entry per task, named as in crew.jsonc, with "description" and "expected_output".
+# The text sits under "|-", indented by 4 spaces; line breaks and numbered lists are kept as written.
+# Placeholders are replaced with this run's values: {current_date}, {portfolio}, {watchlist},
+# {risk_profile}, and the pre-fetched data {data_events}, {data_market}, {data_prices},
+# {data_fundamentals_holdings}, {data_fundamentals_watchlist}, {data_portfolio}, {data_status}.
+# Each expected output ends with a "Length: ..." limit; keep one, since later tasks read these reports.
+#
+# Check after editing:      uv run python task_profiles.py
+# Print one task's text:    uv run python task_profiles.py risk_assessment_task
+#
+# The covered call task is switched off, but its text is kept here for when it is switched back
+# on (python3 scripts/toggle_covered_calls.py on). That script also edits the events calendar and
+# action plan text in this file.
+
+events_calendar_task:
+  description: |-
+    Build the events calendar from {current_date} through the next 14 days for the symbols in {portfolio} and {watchlist}. Work in this order and stop as soon as the tables are complete:
+    1. The events_calendar tool output for every holding and watchlist symbol was fetched at run start and is included below under PRE-FETCHED DATA. Use its earnings, dividend and expiration figures exactly as given. Call the tool yourself only if that data shows ERROR.
+    2. Macro events: use web search for the FOMC decision, CPI, jobs report and GDP/PCE dates inside the window. At most 4 searches in total. Prefer federalreserve.gov, bls.gov and bea.gov results, and take the dates from the search results.
+    3. Earnings status: a date is Confirmed only if a search result from the company or its press release states it; otherwise mark it Estimated. Spend at most one search per HOLDING whose earnings fall in the window; do not search for watchlist names. ETFs have no earnings: list each once with Status 'N/A (ETF)' and no date.
+    Do not research other corporate events, record dates, consensus figures or implied moves beyond what the tool returns; write N/A where the tool has nothing. Flag conflicts that matter: several holdings reporting in the same week.
+
+    PRE-FETCHED DATA (events_calendar tool, fetched at run start):
+    {data_events}
+
+  expected_output: |-
+    A markdown events calendar with:
+    1. "This week" highlights: 3–5 bullets.
+    2. Earnings table sorted by date (Date | Time BMO/AMC | Call time ET | Symbol | Holding/Watchlist | Status | Consensus EPS | Consensus Rev | Implied move | Source).
+    3. Dividends table (Symbol | Ex-div | Pay | Amount).
+    4. Macro calendar table (Date | Time ET | Event | Source).
+    5. Conflicts and alerts list (write None if there are none).
+    All dates in YYYY-MM-DD; all times in ET. Length: under 200 words outside the tables.
+
+market_context_task:
+  description: |-
+    As of {current_date}, produce a market briefing covering:
+    1. Market regime: trend of SPY/QQQ/IWM, VIX level, 10-year yield, dollar.
+    2. Market breadth: is the move broad-based or carried by a handful of mega caps? Use the Market internals breadth table (equal-weight vs cap-weight, MAGS vs RSP, sectors above their averages) and its Breadth read.
+    3. Credit conditions: are credit spreads widening? Use the high-yield and investment-grade spreads and the Credit read. Say so explicitly if spreads are widening while stocks hold up: that is an early warning.
+    4. Relative leadership: which sectors and which holdings/watchlist names are beating or lagging SPY, and is that leadership Improving or Deteriorating? Use the Relative leadership tables.
+    5. For every symbol in {portfolio} and {watchlist}: material news from the past 7 days, each item classified as one of:
+       - Thesis-changing: new information that changes the investment case: guidance raised or cut, a major customer or contract won or lost, regulatory or legal action, M&A, a management departure, an accounting problem, a capital raise.
+       - Thesis-confirming: new evidence consistent with the existing case: results in line, a planned launch on schedule, a trend continuing.
+       - Noise: headlines unlikely to change an investment decision: price-move commentary, analyst target tweaks without new facts, opinion pieces, recycled stories, general market mentions.
+       When unsure, it is not Thesis-changing. Do not list scheduled events here; they belong in the events calendar.
+    6. Environment verdict: Changing or Unchanged. Call it Changing only when breadth, credit or leadership readings show it, or when several holdings have thesis-changing news, never because of the number of headlines.
+    Research budget: at most 6 web searches and 3 page reads in total. Cover only the listed symbols, SPY/QQQ/IWM and their sector ETFs, and stop as soon as the tables are complete.
+
+    PRE-FETCHED DATA (price_indicators tool for SPY, QQQ, IWM and the 11 sector ETFs XLK, XLF, XLE, XLV, XLI, XLY, XLP, XLU, XLB, XLRE, XLC, then Market internals: breadth, credit spreads and relative leadership, fetched at run start; use it for the regime, breadth, credit and leadership numbers instead of reading websites):
+    {data_market}
+
+  expected_output: |-
+    A markdown briefing with:
+    1. Regime summary: 3–5 bullets, including the breadth and credit readings.
+    2. Market internals table (Area | Reading | Evidence) with rows Breadth (Broad/Narrow/Mixed), Credit (Widening/Stable/Tightening) and Leadership (the sectors gaining and losing leadership), each with figures.
+    3. Sector leaders/laggards table (Sector | RS 1m | RS 3m | Leadership Improving/Steady/Deteriorating).
+    4. Per-symbol news table (Symbol | Key news | Classification Thesis-changing/Thesis-confirming/Noise/None | Sentiment +/0/- | Why it does or doesn't matter). Every news item is dated and sourced; write "No material news" and None when there is nothing.
+    5. One line: "Environment: Changing" or "Environment: Unchanged", with the reason.
+    Length: under 450 words outside the tables.
+
+holdings_fundamental_review_task:
+  description: |-
+    For each holding in {portfolio}, answer five investment questions, each with the figures behind the answer:
+    1. Is the business getting stronger or weaker? Revenue and EPS growth (TTM and forward), gross and operating margin trend, ROIC trend, and estimate revisions. Revenue growth alone is not enough: growth with a falling ROIC is weakening.
+    2. Is management allocating capital intelligently? Put most weight on ROIC and incremental ROIC (the return on the capital added over the years shown), then capex trend (% of revenue, capex/D&A), acquisitions, buybacks versus share count change, dividends, and debt issued. Buybacks that don't reduce the share count only offset stock-based compensation. Rate it Good, Mixed or Poor.
+    3. Is the free cash flow sustainable? FCF trend, FCF after stock-based compensation (SBC % of FCF), capex needs, and share dilution. Rate it Sustainable, At risk or Negative.
+    4. Does the valuation offer an adequate prospective return? Compare P/E, EV/EBITDA and P/FCF with the 4 years shown and 2–3 peers. Estimate the prospective annual return as FCF yield plus expected annual growth (forward EPS growth from the estimates); use the earnings yield instead when FCF is negative, or N/A when both are. Show both parts, and compare the result with hurdle_return_pct in {risk_profile}.
+    5. What could permanently impair the thesis? A loss that would not recover, as opposed to a price drop: a broken competitive position, debt due within 12 months that cash doesn't cover, interest coverage below 3x, a dividend above 100% of FCF, heavy dilution, or an acquisition that destroys value. Debt maturities beyond 12 months are not in the data; say so when they matter.
+    Use ROE only where it is meaningful; the data marks it "not meaningful" when equity is zero or negative. State the core thesis, whether it is Intact / Weakening / Broken, and what evidence would change that view. For news from the past 7 days, use at most 2 web searches per holding; take upcoming dates from the events calendar you are given.
+
+    PRE-FETCHED DATA (fundamentals tool with capital=true for each holding, fetched at run start: valuation, annual history, estimates, returns on capital, capital allocation, debt and dividend safety; call the tool only for a holding missing here or showing ERROR):
+    {data_fundamentals_holdings}
+
+  expected_output: |-
+    1. A per-holding scorecard table (Symbol | Business Stronger/Stable/Weaker | ROIC latest | Incremental ROIC | Capital allocation Good/Mixed/Poor | FCF Sustainable/At risk/Negative | Prospective return % | Valuation Cheap/Fair/Rich | Thesis status Intact/Weakening/Broken | Permanent impairment risk).
+    2. Then a section per holding: the five questions answered in one or two sentences each, with figures (Business trend, Capital allocation, Free cash flow, Valuation and prospective return, Permanent impairment risk), followed by the bull case, the bear case and "what would make me sell".
+    Length: under 250 words of prose per holding.
+
+watchlist_screening_task:
+  description: |-
+    Answer one question: which names in {watchlist} would be the best risk-adjusted addition to the existing portfolio in {portfolio}? Judge every name twice and give four separate scores from 1 (worst) to 5 (best):
+    First, as a business:
+    1. Quality: growth, margins, free cash flow, balance sheet, returns on capital.
+    2. Valuation: is it undervalued, not just cheap? Compare the multiples (forward P/E, EV/EBITDA, FCF yield, PEG) with the company's growth and its estimate revisions. A low multiple on falling revenue or EPS, shrinking margins or estimates being cut is "Cheap for a reason": score it 2 or lower, never 4 or 5, however low the multiple.
+    3. Catalyst: a dated event or trend in the next few months that could re-rate it (earnings from the events calendar, product cycle, estimate upgrades); 1 if there is none.
+    Second, as an addition to this portfolio:
+    4. Diversification: already computed for every name in the Portfolio fit table at the top of the PRE-FETCHED DATA (5 = a sector the portfolio does not hold; 4 = held, under half the sector limit; 3 = held, room under the limit; 2 = sector near the limit, or the same industry as a holding; 1 = sector over the limit). Copy its Sector and Diversification exactly.
+    Diversification measures fit with this portfolio, not business quality: never lower the Quality score because of overlap.
+    Total = the sum of the four scores (4–20). Rank by Total, highest first; break ties by Quality. Shortlist the top 3–5 names worth deeper technical review, but never a name marked Cheap for a reason or one already held. Recommend removing names whose thesis no longer holds.
+    Cover every name in the Portfolio fit table: one row each, no exceptions, Cheap for a reason names included. Names you already hold are left out; the holdings review covers them. This is an unattended batch run: nobody can answer questions, so never ask for confirmation or offer a shorter version; return the complete table.
+
+    PRE-FETCHED DATA (fundamentals tool for each watchlist name, fetched at run start; call the tool only for a name missing here or showing ERROR):
+    {data_fundamentals_watchlist}
+
+  expected_output: |-
+    1. One line under the title: "Diversification scores fit with the current portfolio, not business quality."
+    2. A ranked table with one row for every name in the Portfolio fit table (Rank | Symbol | Sector | Quality 1–5 | Valuation 1–5 | Value read Undervalued/Fair/Rich/Cheap for a reason | Catalyst 1–5 | Diversification 1–5 | Total | Verdict Shortlist/Keep watching/Remove | Rationale), sorted by Total. Scores are whole numbers; write the symbol alone in the Symbol column. The Rationale is one short sentence naming the evidence behind the valuation read (e.g. "10x forward but EPS estimates cut 8%"); for Keep watching rows a few words are enough.
+    3. A short "Cheap for a reason" list: the names with low multiples that were not ranked as attractive, and why (write None if there are none).
+    Length: under 250 words outside the table.
+
+technical_analysis_task:
+  description: |-
+    For every holding and every watchlist name, analyze daily and weekly charts: trend vs 20/50/200-day moving averages, RSI(14), MACD, relative strength vs SPY and sector ETF, volume trend, and nearest support/resistance. Give each name a technical stance and specific levels: holdings → add zone, trim zone, stop/invalidation level; watchlist → entry zone, stop, first target. Use the events calendar you are given to flag earnings in the next 2 weeks that make a level unreliable.
+    Level rules, checked in code: write every zone low–high (e.g. 4.50–4.95); the stop must be strictly below the entry/add zone's low, not equal to it (e.g. support minus half an ATR); the trim zone must start above the entry/add zone's high.
+    This is an unattended batch run: nobody can answer questions, so never ask for confirmation or offer a shorter version; return the complete table for every name.
+
+    PRE-FETCHED DATA (price_indicators tool for every holding and watchlist name vs SPY, fetched at run start; call the tool only for a symbol missing here or showing ERROR, or to compare with a sector ETF):
+    {data_prices}
+
+  expected_output: |-
+    A table (Symbol | Trend Up/Side/Down | RSI | vs 50/200 DMA | Rel. strength | Support | Resistance | Entry/Add zone | Trim zone | Stop) plus a one-line setup note per symbol. Length: under 250 words outside the table.
+
+covered_call_task:
+  # Switched off: see scripts/toggle_covered_calls.py
+  description: |-
+    Review every holding with 100+ shares and every open option position in {portfolio}. For each eligible holding, recommend whether to write a covered call now. If yes, propose strike, expiry (prefer 30–45 DTE), delta (prefer ~0.20–0.30), premium, annualized yield, and probability of assignment. Avoid expiries spanning earnings unless explicitly justified; avoid strikes below the technical resistance or trim zone for names in a strong uptrend. For open calls, recommend Hold / Close / Roll (with target strike/expiry and net credit) / Allow assignment.
+
+  expected_output: |-
+    Table 1 – New calls: (Symbol | Shares | Write? | Strike | Expiry | Delta | Premium | Annualized yield | Upside to strike % | Earnings in window? | Rationale). Table 2 – Open calls: (Symbol | Current strike/expiry | P/L | Action | Details). Each recommendation states the upside given up versus premium collected.
+
+risk_assessment_task:
+  description: |-
+    Assess the current portfolio and stress-test the specialists' implied actions against {risk_profile}:
+    1. Position and sector weights; flag breaches of limits.
+    2. Portfolio beta, top correlation clusters, and single-name event risk (earnings in the next 2 weeks).
+    3. Cash level versus floor; impact of potential call assignments.
+    4. Behavioral check: flag any implied action that looks like overtrading, premature exit from a working position, chasing an extended name, or capping a strong name with a tight call. Provide maximum allowed position size for each potential new buy or add.
+
+    PRE-FETCHED DATA (portfolio_analytics tool with your limits, fetched at run start; call the tool only if this shows ERROR):
+    {data_portfolio}
+
+    Data snapshot status:
+    {data_status}
+
+  expected_output: |-
+    A risk dashboard: weights table with limit status (OK/Warn/Breach), portfolio beta, correlation clusters, event-risk list, cash analysis, max size per proposed buy/add, and a "Red flags" list with the specific rule or bias each one violates. Length: under 400 words outside the tables; one line per red flag.
+
+portfolio_action_plan_task:
+  description: |-
+    Combine all prior outputs into the final action plan for {current_date}. For each holding: Hold / Add / Trim / Exit with size and price level. For each watchlist name: Buy now / Buy at level / Keep watching / Remove. Covered call analysis is switched off for now: do not recommend any options trades. Where specialists disagree (e.g. fundamentals say add but technicals say wait), state the conflict and your resolution. Change a decision because of news only when the market briefing classifies it Thesis-changing; Thesis-confirming news can raise conviction, and Noise changes nothing. Every action must respect the risk manager's limits; drop any action the risk manager red-flagged unless you explicitly justify overriding it. Limit to the 5 highest-conviction actions; everything else defaults to "Hold/Watch". End with a pre-trade checklist the investor runs before placing any order.
+    If any report you're given starts with DEGRADED REPORT, or the data snapshot status below lists problems, say how that limits your recommendations and lower the conviction of any action that depends on it.
+
+    Data snapshot status:
+    {data_status}
+
+  expected_output: |-
+    A markdown report with:
+    1. Executive summary (3–5 bullets: regime, portfolio health, top actions).
+    2. Top 5 actions table (Priority | Symbol | Action | Size | Price/Level | Stop | Rationale | Conviction H/M/L).
+    3. Holdings table (Symbol | Weight | Thesis | Technical | Decision).
+    4. Watchlist table (Symbol | Verdict | Entry level | Trigger to act).
+    5. Covered call actions: write 'Switched off for now.'
+    6. Upcoming events (next 2 weeks): earnings calls, ex-dividend dates, option expirations and macro events affecting the portfolio, each with the planned action before or after the event. Full details stay in events_calendar.md.
+    7. Risks and conflicts resolved.
+    8. Pre-trade checklist (5–8 yes/no questions).
+    9. Date to next review and what would trigger an earlier review.
+    10. Data gaps: every DEGRADED report, every figure given as N/A, and every backup data source used (write None if there were none). Length: under 700 words outside the tables.

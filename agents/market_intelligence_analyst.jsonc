@@ -1,0 +1,18 @@
+// agents/market_intelligence_analyst.jsonc
+{
+  "role": "Market Intelligence Analyst",
+  "goal": "{goal_market_intelligence_analyst}",  // text in agent_profiles.yaml
+  "backstory": "{backstory_market_intelligence_analyst}",  // text in agent_profiles.yaml
+  "tools": ["SerperDevTool", "ScrapeWebsiteTool", "custom:events_calendar"],
+  "llm": {"python": "models.market_intelligence_analyst"},  // model chosen in models.jsonc
+  // --- Guardrails: execution limits ---
+  "allow_delegation": false,
+  "max_iter": 12,                    // hard cap on reasoning/tool loops
+  "max_execution_time": 600,        // seconds; stops runaway tasks
+  "max_rpm": 20,                    // throttle to protect API and data-provider quotas
+  "max_retry_limit": 2,              // retries on errors before failing
+  "respect_context_window": true,    // summarize instead of overflowing the context
+  "inject_date": true,               // agent always knows today's date
+  "date_format": "%Y-%m-%d",
+  "verbose": true
+}

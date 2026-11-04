@@ -1,0 +1,21 @@
+// agents/watchlist_screener.jsonc
+// Screens the watchlist. Its own agent (rather than the Fundamental Research Analyst) so it can
+// run in parallel with the holdings review, and on a smaller model: it ranks names from tool tables.
+{
+  "role": "Watchlist Screener",
+  "goal": "{goal_watchlist_screener}",  // text in agent_profiles.yaml
+  "backstory": "{backstory_watchlist_screener}",  // text in agent_profiles.yaml
+  "llm": {"python": "models.watchlist_screener"},  // model chosen in models.jsonc
+  "tools": ["custom:fundamentals"],
+
+  // --- Guardrails: execution limits ---
+  "allow_delegation": false,
+  "max_iter": 10,                    // one fundamentals call per name, then the answer
+  "max_execution_time": 420,         // seconds
+  "max_rpm": 20,
+  "max_retry_limit": 2,
+  "respect_context_window": true,
+  "inject_date": true,
+  "date_format": "%Y-%m-%d",
+  "verbose": true
+}

@@ -1,0 +1,24 @@
+// agents/events_calendar_clerk.jsonc
+// A low-cost agent for the events calendar. The work is collating tool output into tables,
+// so it uses a small model with low reasoning effort, search only (no page reading),
+// and a tight step budget. This is what cuts the task's time and cost.
+{
+  "role": "Events Calendar Clerk",
+  "goal": "{goal_events_calendar_clerk}",  // text in agent_profiles.yaml
+  "backstory": "{backstory_events_calendar_clerk}",  // text in agent_profiles.yaml
+  "llm": {"python": "models.events_calendar_clerk"},  // model chosen in models.jsonc
+
+  // No ScrapeWebsiteTool: opening full web pages was the main cost driver.
+  "tools": ["custom:events_calendar", "SerperDevTool"],
+
+  // --- Guardrails: execution limits ---
+  "allow_delegation": false,
+  "max_iter": 8,                     // 1 tool call + up to ~6 searches + the answer
+  "max_execution_time": 300,         // seconds
+  "max_rpm": 20,
+  "max_retry_limit": 2,
+  "respect_context_window": true,
+  "inject_date": true,
+  "date_format": "%Y-%m-%d",
+  "verbose": true
+}

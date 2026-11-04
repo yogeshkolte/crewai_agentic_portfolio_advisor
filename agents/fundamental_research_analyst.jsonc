@@ -1,0 +1,19 @@
+// agents/fundamental_research_analyst.jsonc
+{
+  "role": "Fundamental Equity Research Analyst",
+  "goal": "{goal_fundamental_research_analyst}",  // text in agent_profiles.yaml
+  "backstory": "{backstory_fundamental_research_analyst}",  // text in agent_profiles.yaml
+  "llm": {"python": "models.fundamental_research_analyst"},  // model chosen in models.jsonc
+  "tools": ["custom:fundamentals", "SerperDevTool"],
+
+  // --- Guardrails: execution limits ---
+  "allow_delegation": false,
+  "max_iter": 20,                    // hard cap on reasoning/tool loops
+  "max_execution_time": 900,        // seconds; stops runaway tasks
+  "max_rpm": 20,                    // throttle to protect API and data-provider quotas
+  "max_retry_limit": 2,              // retries on errors before failing
+  "respect_context_window": true,    // summarize instead of overflowing the context
+  "inject_date": true,               // agent always knows today's date
+  "date_format": "%Y-%m-%d",
+  "verbose": true
+}

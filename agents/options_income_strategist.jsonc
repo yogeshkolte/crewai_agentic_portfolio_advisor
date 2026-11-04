@@ -1,0 +1,19 @@
+// agents/options_income_strategist.jsonc
+{
+  "role": "Covered Call and Options Income Strategist",
+  "goal": "{goal_options_income_strategist}",  // text in agent_profiles.yaml
+  "backstory": "{backstory_options_income_strategist}",  // text in agent_profiles.yaml
+  "llm": {"python": "models.options_income_strategist"},  // model chosen in models.jsonc
+  "tools": ["custom:options_chain", "custom:price_indicators"],
+
+  // --- Guardrails: execution limits ---
+  "allow_delegation": false,
+  "max_iter": 15,                    // hard cap on reasoning/tool loops
+  "max_execution_time": 600,        // seconds; stops runaway tasks
+  "max_rpm": 20,                    // throttle to protect API and data-provider quotas
+  "max_retry_limit": 2,              // retries on errors before failing
+  "respect_context_window": true,    // summarize instead of overflowing the context
+  "inject_date": true,               // agent always knows today's date
+  "date_format": "%Y-%m-%d",
+  "verbose": true
+}

@@ -1,0 +1,28 @@
+# Portfolio Management Crew — Python dependencies
+#
+# `crewai run` uses the project's own uv environment when a pyproject.toml exists,
+# so prefer adding these with uv (see README):
+#   uv sync    (installs what pyproject.toml lists)
+#
+# For a plain virtualenv instead:
+#   pip install -r requirements.txt
+
+# Core framework and built-in tools (Serper search, website reader).
+# For the anthropic or gemini provider in models.jsonc, use crewai[tools,anthropic] or
+# crewai[tools,google-genai] instead.
+crewai[tools]>=1.15
+
+# Market data and calculations used by tools/
+yfinance>=0.2.54
+pandas>=2.0,<4    # yfinance 1.7 uses a pandas feature removed in 4.0
+numpy>=1.26
+
+# OpenAI-compatible SDK: OpenAI models and scripts/deepseek_flash.py
+openai>=1.40
+
+# Report viewer (ui/app.py)
+streamlit>=1.40
+
+# Stock chat agent (chat/server.py): AG-UI bridge for CopilotKit; brings FastAPI and uvicorn
+ag-ui-crewai>=1.0
+litellm>=1.102.4,<1.103   # 1.103+ needs mcp 2.x; CrewAI 1.15 pins mcp 1.x

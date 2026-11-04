@@ -1,0 +1,71 @@
+// models.jsonc: which model each agent uses.
+//
+// Pick a provider below ("provider"), or for one run only:
+//     MODEL_PROVIDER=openai crewai run
+// See what each agent will use and whether its API key is set:
+//     uv run python models.py
+// Switch the default provider:
+//     uv run python models.py use anthropic
+//
+// Each agent has a tier, and each provider names a model for each tier:
+//   fast      reads tool tables and fills in a format (events, watchlist, technicals)
+//   research  same small model, more thinking (market context: news and synthesis)
+//   strong    judgement calls (fundamentals, risk, the final plan, covered calls)
+//   judge     the plain-English review of each report (see guardrails.py)
+// A model is a string ("openai/gpt-5") or an object with a reasoning effort
+// ({"model": "openai/gpt-5-mini", "reasoning_effort": "low"}). Effort is only sent to
+// OpenAI and DeepSeek; other providers ignore it. DeepSeek accepts low, high and max.
+{
+  "provider": "openai",
+
+  "tiers": {
+    "events_calendar_clerk": "fast",
+    "watchlist_screener": "research",
+    "technical_analyst": "research",
+    "market_intelligence_analyst": "research",
+    "fundamental_research_analyst": "strong",
+    "risk_manager": "strong",
+    "portfolio_manager": "strong",
+    "options_income_strategist": "strong",
+    // The always-running stock chat (chat/server.py): fast model for quick replies.
+    "stock_chat": "fast"
+  },
+
+  "providers": {
+    // Key: DEEPSEEK_API_KEY (the reviews and covered calls use OPENAI_API_KEY).
+    "deepseek": {
+      "fast": {"model": "deepseek/deepseek-flash", "reasoning_effort": "low"},
+      "research": {"model": "deepseek/deepseek-flash", "reasoning_effort": "high"},
+      "strong": {"model": "deepseek/deepseek-v4-pro", "reasoning_effort": "high"},
+      // Plain-English reviews on DeepSeek are untested, so they stay on OpenAI.
+      "judge": "openai/gpt-5-mini",
+      "agents": {"options_income_strategist": "openai/gpt-5"}
+    },
+    // Key: OPENAI_API_KEY. The settings the crew used before DeepSeek.
+    "openai": {
+      "fast": {"model": "openai/gpt-5-mini", "reasoning_effort": "low"},
+      "research": {"model": "openai/gpt-5-mini", "reasoning_effort": "medium"},
+      "strong": {"model": "openai/gpt-5", "reasoning_effort": "medium"},
+      "judge": "openai/gpt-5-mini"
+    },
+    // Key: ANTHROPIC_API_KEY. Install once: uv add "crewai[anthropic]"
+    // For the strongest final plan, set "portfolio_manager" to "anthropic/claude-opus-5-5" in "agents" below.
+    "anthropic": {
+      "fast": "anthropic/claude-haiku-5-5",
+      "research": "anthropic/claude-haiku-5-5",
+      "strong": "anthropic/claude-sonnet-5-5",
+      "judge": "anthropic/claude-haiku-5-5"
+    },
+    // Key: GEMINI_API_KEY (or GOOGLE_API_KEY). Install once: uv add "crewai[google-genai]"
+    "gemini": {
+      "fast": "gemini/gemini-3.5-flash-lite",
+      "research": "gemini/gemini-3.8-flash",
+      "strong": "gemini/gemini-4-argon",
+      "judge": "gemini/gemini-3.5-flash-lite"
+    }
+  },
+
+  // Mix providers: a model set here wins for that agent whatever "provider" says.
+  // e.g. "portfolio_manager": "anthropic/claude-sonnet-5-5"
+  "agents": {}
+}

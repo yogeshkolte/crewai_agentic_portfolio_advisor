@@ -1,0 +1,7 @@
+# Settings for the chat page. chat/start.sh copies this to .env.local (read by Next.js) on first run.
+
+# Where the Python agent (chat/server.py) listens.
+STOCK_AGENT_URL=http://127.0.0.1:8000/stock_chat
+
+# Don't send CopilotKit usage telemetry.
+COPILOTKIT_TELEMETRY_DISABLED=true

@@ -1,0 +1,29 @@
+{
+  "name": "stock-chat-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CopilotKit chat page for the stock chat agent (chat/server.py)",
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1 --port 3000",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1 --port 3000"
+  },
+  "dependencies": {
+    "@ag-ui/crewai": "0.0.4",
+    "@copilotkit/react-core": "1.83.0",
+    "@copilotkit/runtime": "1.83.0",
+    "hono": "4.13.14",
+    "next": "16.4.3",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5.9"
+  },
+  "overrides": {
+    "@ag-ui/client": "1.0.2"
+  }
+}

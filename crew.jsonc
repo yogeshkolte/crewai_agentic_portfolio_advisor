@@ -1,0 +1,221 @@
+// crew.jsonc — Portfolio Management Crew (native CrewAI JSONC project; run with `crewai run`)
+// Agents live in agents/<name>.jsonc. Guardrail functions live in guardrails.py, tool/LLM hooks in hooks.py.
+// Custom tools ("custom:<name>") load from tools/<name>.py.
+// WARNING: {"python": ...} references and custom tools execute local Python when the crew loads.
+{
+  "name": "Portfolio Management Crew",
+  "agents": [
+    "market_intelligence_analyst",
+    "events_calendar_clerk",
+    "fundamental_research_analyst",
+    "watchlist_screener",
+    "technical_analyst",
+    "options_income_strategist",
+    "risk_manager",
+    "portfolio_manager"
+  ],
+
+  "process": "sequential",
+  "verbose": true,
+  "memory": false,
+  "cache": true,
+  "max_rpm": 30,                          // crew-wide request ceiling
+  "output_log_file": "output/crew_run.log", // full audit trail of every run
+  // Saves progress after every task in .checkpoints/, so a failed run can be resumed with
+  // `crewai checkpoint resume` instead of starting over. Keeps the 20 most recent.
+  "checkpoint": {"max_checkpoints": 20},
+
+  // Input guardrail: loads the CSVs, checks them and the risk profile, and stops the run if anything is off.
+  // Importing guardrails also registers the tool/LLM hooks in hooks.py.
+  "before_kickoff_callbacks": [
+    {"python": "guardrails.validate_inputs"},
+    {"python": "observability.start_run"}      // opens output/runs/<date_time>/ for this run
+  ],
+  // Writes output/runs/<date_time>/summary.md: time, tokens, estimated cost, tool calls and
+  // guardrail failures per task. Failed runs still get a report (written on exit).
+  "after_kickoff_callbacks": [{"python": "observability.finish_run"}],
+
+  "inputs": {
+    "current_date": "today",                    // replaced with the run date
+    "file_date": "today",                       // replaced with YYYYMMDD; prefixes output file names
+    "portfolio_file": "data/portfolio.csv",     // symbol, shares, avg_cost, sector, option_type, strike, expiry, contracts
+    "watchlist_file": "data/watchlist.csv",     // symbol, reason
+    "cash_file": "data/cash.csv",               // account, amount: cash in dollars per account (summed); label accounts, no account numbers
+    "portfolio": "(loaded from portfolio_file)",
+    "watchlist": "(loaded from watchlist_file)",
+    "events_days": 14,                          // look-ahead for the events calendar; keep equal to the events task's "next N days"
+    "cash": "(loaded from cash_file)",          // total cash in dollars, for the risk check's cash-vs-minimum test
+    "allowed_domains": "(from hooks.py)",       // website allowlist for the agents' prompts; filled at run start
+    // Filled at run start by data_snapshot.py (via guardrails.validate_inputs); placeholders only.
+    "data_events": "(fetched at run start)",
+    "data_market": "(fetched at run start)",
+    "data_prices": "(fetched at run start)",
+    "data_fundamentals_holdings": "(fetched at run start)",
+    "data_fundamentals_watchlist": "(fetched at run start)",
+    "data_portfolio": "(fetched at run start)",
+    "data_status": "(fetched at run start)",
+    // Each task's description and expected output, filled from task_profiles.yaml at run start.
+    "description_events_calendar_task": "(from task_profiles.yaml)", "expected_output_events_calendar_task": "(from task_profiles.yaml)",
+    "description_market_context_task": "(from task_profiles.yaml)", "expected_output_market_context_task": "(from task_profiles.yaml)",
+    "description_holdings_fundamental_review_task": "(from task_profiles.yaml)", "expected_output_holdings_fundamental_review_task": "(from task_profiles.yaml)",
+    "description_watchlist_screening_task": "(from task_profiles.yaml)", "expected_output_watchlist_screening_task": "(from task_profiles.yaml)",
+    "description_technical_analysis_task": "(from task_profiles.yaml)", "expected_output_technical_analysis_task": "(from task_profiles.yaml)",
+    "description_covered_call_task": "(from task_profiles.yaml)", "expected_output_covered_call_task": "(from task_profiles.yaml)",
+    "description_risk_assessment_task": "(from task_profiles.yaml)", "expected_output_risk_assessment_task": "(from task_profiles.yaml)",
+    "description_portfolio_action_plan_task": "(from task_profiles.yaml)", "expected_output_portfolio_action_plan_task": "(from task_profiles.yaml)",
+    // Each agent's goal and backstory, filled from agent_profiles.yaml at run start.
+    "goal_events_calendar_clerk": "(from agent_profiles.yaml)", "backstory_events_calendar_clerk": "(from agent_profiles.yaml)",
+    "goal_market_intelligence_analyst": "(from agent_profiles.yaml)", "backstory_market_intelligence_analyst": "(from agent_profiles.yaml)",
+    "goal_fundamental_research_analyst": "(from agent_profiles.yaml)", "backstory_fundamental_research_analyst": "(from agent_profiles.yaml)",
+    "goal_watchlist_screener": "(from agent_profiles.yaml)", "backstory_watchlist_screener": "(from agent_profiles.yaml)",
+    "goal_technical_analyst": "(from agent_profiles.yaml)", "backstory_technical_analyst": "(from agent_profiles.yaml)",
+    "goal_risk_manager": "(from agent_profiles.yaml)", "backstory_risk_manager": "(from agent_profiles.yaml)",
+    "goal_portfolio_manager": "(from agent_profiles.yaml)", "backstory_portfolio_manager": "(from agent_profiles.yaml)",
+    "goal_options_income_strategist": "(from agent_profiles.yaml)", "backstory_options_income_strategist": "(from agent_profiles.yaml)",
+    // Also read by guardrails.py, which enforces these numbers on the outputs.
+    "risk_profile": {
+      "max_position_pct": 10,
+      "max_sector_pct": 30,
+      "min_cash_pct": 5,
+      "max_new_trades_per_week": 3,
+      "hurdle_return_pct": 10,               // minimum expected annual return for a holding's valuation to count as adequate
+      "covered_calls": {
+        "min_shares": 100,
+        "target_delta": [0.20, 0.30],
+        "hard_delta_limit": [0.10, 0.40],
+        "target_dte": [30, 45],
+        "max_dte": 90,
+        "allow_through_earnings": false,
+        "min_upside_to_strike_pct": 5
+      },
+      "known_biases": [
+        "overtrading the same names",
+        "exiting winning positions too early",
+        "writing covered calls with strikes too tight on strong names"
+      ]
+    }
+  },
+
+  "tasks": [
+    // Order: events calendar first; then the four async_execution tasks run in parallel;
+    // risk waits for all of them; the action plan runs last.
+    {
+      "name": "events_calendar_task",
+      "agent": "events_calendar_clerk",           // low-cost agent; see agents/events_calendar_clerk.jsonc
+      "description": "{description_events_calendar_task}",  // text in task_profiles.yaml
+      "expected_output": "{expected_output_events_calendar_task}",  // text in task_profiles.yaml
+      "context": [],          // empty on purpose: leaving it out would pass in every earlier report
+      "markdown": true,
+      "output_file": "output/{file_date}_events_calendar.md",
+      // One combined check: safety, content rules and a plain-English review; on the last attempt a
+      // failing report is accepted as DEGRADED and the run continues (see guardrails.py).
+      "guardrails": [{"python": "guardrails.check_events_calendar"}],
+      "guardrail_max_retries": 2
+    },
+
+    {
+      "name": "market_context_task",
+      "agent": "market_intelligence_analyst",
+      "async_execution": true,     // runs in parallel with the other analysis tasks
+      "description": "{description_market_context_task}",  // text in task_profiles.yaml
+      "expected_output": "{expected_output_market_context_task}",  // text in task_profiles.yaml
+      "context": [],
+      "markdown": true,
+      "output_file": "output/{file_date}_01_market_context.md",
+      // One combined check: safety, content rules and a plain-English review; on the last attempt a
+      // failing report is accepted as DEGRADED and the run continues (see guardrails.py).
+      "guardrails": [{"python": "guardrails.check_market_context"}],
+      "guardrail_max_retries": 2
+    },
+
+    {
+      "name": "holdings_fundamental_review_task",
+      "agent": "fundamental_research_analyst",
+      "async_execution": true,     // runs in parallel with the other analysis tasks
+      "description": "{description_holdings_fundamental_review_task}",  // text in task_profiles.yaml
+      "expected_output": "{expected_output_holdings_fundamental_review_task}",  // text in task_profiles.yaml
+      "context": ["events_calendar_task"],
+      "markdown": true,
+      "output_file": "output/{file_date}_02_holdings_fundamentals.md",
+      // One combined check: safety, content rules and a plain-English review; on the last attempt a
+      // failing report is accepted as DEGRADED and the run continues (see guardrails.py).
+      "guardrails": [{"python": "guardrails.check_holdings_fundamentals"}],
+      "guardrail_max_retries": 2
+    },
+
+    {
+      "name": "watchlist_screening_task",
+      "agent": "watchlist_screener",          // own agent so it can run in parallel
+      "async_execution": true,     // runs in parallel with the other analysis tasks
+      "description": "{description_watchlist_screening_task}",  // text in task_profiles.yaml
+      "expected_output": "{expected_output_watchlist_screening_task}",  // text in task_profiles.yaml
+      "context": ["events_calendar_task"],
+      "markdown": true,
+      "output_file": "output/{file_date}_03_watchlist_screen.md",
+      // One combined check: safety, content rules and a plain-English review; on the last attempt a
+      // failing report is accepted as DEGRADED and the run continues (see guardrails.py).
+      "guardrails": [{"python": "guardrails.check_watchlist_screen"}],
+      "guardrail_max_retries": 2
+    },
+
+    {
+      "name": "technical_analysis_task",
+      "agent": "technical_analyst",
+      "async_execution": true,     // runs in parallel with the other analysis tasks
+      "description": "{description_technical_analysis_task}",  // text in task_profiles.yaml
+      "expected_output": "{expected_output_technical_analysis_task}",  // text in task_profiles.yaml
+      "context": ["events_calendar_task"],
+      "markdown": true,
+      "output_file": "output/{file_date}_04_technicals.md",
+      // One combined check: safety, content rules and a plain-English review; on the last attempt a
+      // failing report is accepted as DEGRADED and the run continues (see guardrails.py).
+      "guardrails": [{"python": "guardrails.check_technicals"}],
+      "guardrail_max_retries": 2
+    },
+
+    /* COVERED CALLS DISABLED: run scripts/toggle_covered_calls.py on to restore
+    {
+      "name": "covered_call_task",
+      "agent": "options_income_strategist",
+      "description": "{description_covered_call_task}",  // text in task_profiles.yaml
+      "expected_output": "{expected_output_covered_call_task}",  // text in task_profiles.yaml
+      "context": ["market_context_task", "events_calendar_task", "holdings_fundamental_review_task", "technical_analysis_task"],
+      "markdown": true,
+      "output_file": "output/{file_date}_05_covered_calls.md",
+      // One combined check: safety, content rules and a plain-English review; on the last attempt a
+      // failing report is accepted as DEGRADED and the run continues (see guardrails.py).
+      "guardrails": [{"python": "guardrails.check_covered_calls"}],
+      "guardrail_max_retries": 3
+    },
+    END COVERED CALLS DISABLED */
+
+    {
+      "name": "risk_assessment_task",
+      "agent": "risk_manager",
+      "description": "{description_risk_assessment_task}",  // text in task_profiles.yaml
+      "expected_output": "{expected_output_risk_assessment_task}",  // text in task_profiles.yaml
+      "context": ["events_calendar_task", "holdings_fundamental_review_task", "watchlist_screening_task", "technical_analysis_task" /*, "covered_call_task" */],
+      "markdown": true,
+      "output_file": "output/{file_date}_06_risk.md",
+      // One combined check: safety, content rules and a plain-English review; on the last attempt a
+      // failing report is accepted as DEGRADED and the run continues (see guardrails.py).
+      "guardrails": [{"python": "guardrails.check_risk"}],
+      "guardrail_max_retries": 2
+    },
+
+    {
+      "name": "portfolio_action_plan_task",
+      "agent": "portfolio_manager",
+      "description": "{description_portfolio_action_plan_task}",  // text in task_profiles.yaml
+      "expected_output": "{expected_output_portfolio_action_plan_task}",  // text in task_profiles.yaml
+      "context": ["market_context_task", "events_calendar_task", "holdings_fundamental_review_task", "watchlist_screening_task", "technical_analysis_task" /*, "covered_call_task" */, "risk_assessment_task"],
+      "markdown": true,
+      "output_file": "output/{file_date}_07_action_plan.md",
+      // One combined check: safety, content rules and a plain-English review; on the last attempt a
+      // failing report is accepted as DEGRADED and the run continues (see guardrails.py).
+      "guardrails": [{"python": "guardrails.check_action_plan"}],
+      "guardrail_max_retries": 3,
+      "human_input": false     // true = the plan waits in the terminal for your Enter/feedback before it is saved
+    }
+  ]
+}
