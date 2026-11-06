@@ -69,10 +69,10 @@ A task reads earlier reports only through its `context` list; CrewAI pastes thos
 | Events calendar | nothing (`[]`) | `{data_events}` |
 | Market context | nothing (`[]`) | `{data_market}` (benchmarks + market internals: breadth, credit spreads, relative leadership) |
 | Holdings fundamentals | events | `{data_fundamentals_holdings}` |
-| Watchlist screen | events | `{data_fundamentals_watchlist}`, `{data_portfolio}` (sector weights for the diversification score) |
+| Watchlist screen | events | `{data_fundamentals_watchlist}` (with the portfolio fit table), `{data_track_record_scores}` (how past scores turned out) |
 | Technicals | events | `{data_prices}` |
 | Risk | events, holdings, watchlist, technicals (not market) | `{data_portfolio}`, `{data_status}` |
-| Action plan | all six earlier reports | `{data_status}` |
+| Action plan | all six earlier reports | `{data_status}`, `{data_track_record}` (past plans scored vs SPY, open items of the last plan) |
 
 - **The explicit-context trap.** A task with no `context` key receives every earlier task's output. Events and market set `[]` so they start clean.
 - **Length caps.** Each expected output (in `task_profiles.yaml`) ends with a "Length: …" limit, which keeps what risk and plan read short and fast.

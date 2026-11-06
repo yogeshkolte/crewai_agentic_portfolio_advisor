@@ -129,7 +129,8 @@ DISCLAIMER = "not investment advice"
 
 # Inputs filled by data_snapshot.build() (see validate_inputs).
 SNAPSHOT_SLICES = ("data_events", "data_market", "data_prices", "data_fundamentals_holdings",
-                   "data_fundamentals_watchlist", "data_portfolio", "data_status")
+                   "data_fundamentals_watchlist", "data_portfolio", "data_track_record",
+                   "data_track_record_scores", "data_status")
 
 
 # ===========================================================================

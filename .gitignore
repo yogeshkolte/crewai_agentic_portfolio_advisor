@@ -10,6 +10,7 @@ output/
 data/portfolio.csv
 data/watchlist.csv
 data/cash.csv
+data/track_record/
 .venv/
 .backup_*/
 chat/web/node_modules/

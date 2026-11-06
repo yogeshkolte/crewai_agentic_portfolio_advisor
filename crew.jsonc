@@ -53,6 +53,8 @@
     "data_fundamentals_holdings": "(fetched at run start)",
     "data_fundamentals_watchlist": "(fetched at run start)",
     "data_portfolio": "(fetched at run start)",
+    "data_track_record": "(computed at run start)",
+    "data_track_record_scores": "(computed at run start)",
     "data_status": "(fetched at run start)",
     // Each task's description and expected output, filled from task_profiles.yaml at run start.
     "description_events_calendar_task": "(from task_profiles.yaml)", "expected_output_events_calendar_task": "(from task_profiles.yaml)",

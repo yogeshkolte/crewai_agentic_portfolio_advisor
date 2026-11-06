@@ -14,6 +14,7 @@ WHAT IS FETCHED (the same tools the agents use, so the same retries, cache and b
     price_indicators     every holding and watchlist symbol     -> {data_prices}
     fundamentals         holdings / watchlist                   -> {data_fundamentals_holdings} / {data_fundamentals_watchlist}
     portfolio_analytics  holdings with your risk limits         -> {data_portfolio}
+    track_record         past plans/screens scored vs SPY       -> {data_track_record} / {data_track_record_scores}
     a status table of what worked and what didn't              -> {data_status}
 
     Everything is also saved as output/<YYYYMMDD>_00_data_snapshot.md, so you can check any
@@ -35,7 +36,8 @@ ROOT = Path(__file__).resolve().parent
 log = logging.getLogger("portfolio_crew.data")
 
 SLICES = ("data_events", "data_market", "data_prices", "data_fundamentals_holdings",
-          "data_fundamentals_watchlist", "data_portfolio", "data_status")
+          "data_fundamentals_watchlist", "data_portfolio", "data_track_record", "data_track_record_scores",
+          "data_status")
 # Broad market, then the 11 SPDR sector ETFs (for the market briefing's sector rotation table).
 BENCHMARKS = ("SPY", "QQQ", "IWM",
               "XLK", "XLF", "XLE", "XLV", "XLI", "XLY", "XLP", "XLU", "XLB", "XLRE", "XLC")
@@ -160,6 +162,9 @@ def build(holdings: list[dict], watchlist: list[dict], risk_profile: dict, input
     # Breadth, credit spreads and relative leadership for the market briefing (market_internals.py).
     import market_internals
     jobs["Market internals"] = lambda: market_internals.build(held, watched)
+    # How past plans and watchlist scores turned out (track_record.py; also updates the ledger).
+    import track_record
+    jobs["Track record"] = lambda: track_record.build(datetime.now().strftime("%Y-%m-%d"))
     for s in everyone:
         jobs[f"Prices {s}"] = (lambda s=s: prices._run(symbol=s))
         # Holdings also get returns on capital, capital allocation and debt/dividend safety.
@@ -174,6 +179,10 @@ def build(holdings: list[dict], watchlist: list[dict], risk_profile: dict, input
                 results[name] = fut.result()
             except Exception as e:  # tools catch their own errors; this is a last resort
                 results[name] = f"ERROR fetching {name}: {e}. Report figures as N/A (unavailable)."
+    track = results.pop("Track record")
+    if isinstance(track, str):  # the job failed: give both inputs the error
+        track = {"data_track_record": track, "data_track_record_scores": track}
+    results["Track record"] = track["data_track_record"]
 
     secs = time.time() - started
     status_rows = [(name, _status(out)) for name, out in results.items()]
@@ -199,6 +208,8 @@ def build(holdings: list[dict], watchlist: list[dict], risk_profile: dict, input
             _safe_fit(held, watched, results, float(risk_profile.get("max_sector_pct", 30)))
             + "\n\n" + join([f"Fundamentals {s}" for s in watched])),
         "data_portfolio": results["Portfolio analytics"],
+        "data_track_record": track["data_track_record"],
+        "data_track_record_scores": track["data_track_record_scores"],
         "data_status": status,
     }
 
@@ -208,7 +219,8 @@ def build(holdings: list[dict], watchlist: list[dict], risk_profile: dict, input
         folder.mkdir(exist_ok=True)
         titles = {"data_status": "Status", "data_events": "Events calendar", "data_market": "Benchmarks",
                   "data_prices": "Prices and indicators", "data_fundamentals_holdings": "Fundamentals: holdings",
-                  "data_fundamentals_watchlist": "Fundamentals: watchlist", "data_portfolio": "Portfolio analytics"}
+                  "data_fundamentals_watchlist": "Fundamentals: watchlist", "data_portfolio": "Portfolio analytics",
+                  "data_track_record": "Track record: action plans", "data_track_record_scores": "Track record: watchlist scores"}
         body = "\n\n".join(f"# {titles[k]}\n\n{out[k]}" for k in titles)
         (folder / f"{inputs.get('file_date', 'snapshot')}_00_data_snapshot.md").write_text(
             f"<!-- Raw data fetched at run start by data_snapshot.py; every task received the relevant part. -->\n\n{body}\n")

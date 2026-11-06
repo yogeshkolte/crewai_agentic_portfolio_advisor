@@ -16,7 +16,7 @@
 // ({"model": "openai/gpt-5-mini", "reasoning_effort": "low"}). Effort is only sent to
 // OpenAI and DeepSeek; other providers ignore it. DeepSeek accepts low, high and max.
 {
-  "provider": "openai",
+  "provider": "deepseek",
 
   "tiers": {
     "events_calendar_clerk": "fast",
@@ -38,7 +38,7 @@
       "research": {"model": "deepseek/deepseek-flash", "reasoning_effort": "high"},
       "strong": {"model": "deepseek/deepseek-v4-pro", "reasoning_effort": "high"},
       // Plain-English reviews on DeepSeek are untested, so they stay on OpenAI.
-      "judge": "openai/gpt-5-mini",
+      "judge": "deepseek/deepseek-flash",
       "agents": {"options_income_strategist": "openai/gpt-5"}
     },
     // Key: OPENAI_API_KEY. The settings the crew used before DeepSeek.

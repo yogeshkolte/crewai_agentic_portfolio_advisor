@@ -78,6 +78,7 @@ crewai_agentic_portfolio_advisor/
 ├── guardrails.py           # input check, one combined check per task, degrade-instead-of-stop
 ├── data_snapshot.py        # fetches all market data once at run start
 ├── market_internals.py     # breadth, credit spreads (FRED), relative leadership for the market briefing
+├── track_record.py         # scores past plans and watchlist scores vs SPY, fed back into the next run
 ├── market_data.py          # retries, short-lived cache, backup sources (Finnhub, SEC EDGAR)
 ├── observability.py        # run reports in output/runs/
 ├── ui/app.py               # report viewer (uv run streamlit run ui/app.py)
@@ -182,6 +183,8 @@ Then edit the files with your real data.
 **`data/watchlist.csv`** has the columns `symbol` and `reason`.
 
 **`data/cash.csv`** has the columns `account` and `amount`: one row per account, in dollars, summed for the cash-floor check (`min_cash_pct`). Label the accounts (`Brokerage`, `IRA`); the run stops if the label looks like an account number. The run stops if the file is missing; write a row with amount `0` if you hold no cash.
+
+**`data/track_record/`** is written by the run itself (git-ignored): a ledger of every past top action and watchlist score, read from the reports in `output/`. See [Track record](#track-record) below.
 
 ### 5. Set your risk limits
 
@@ -380,6 +383,16 @@ A failed output check sends the task back to its agent with a specific fix list,
 ## Memory
 
 Memory is off (`"memory": false`). That's deliberate: remembered prices and levels from earlier runs could leak into new analysis, and the default memory setup sends data to OpenAI and stores it unencrypted in `.crewai/memory/`. If you turn it on, configure a `Memory` object with a short recency half-life and a local embedder, and reset it with `crewai reset-memories -m` when needed.
+
+## Track record
+
+The agents don't learn between runs, so `track_record.py` gives them evidence of their own results instead. At run start it:
+
+1. reads every past action plan's "Top 5 actions" table and every watchlist screen in `output/` into a ledger in `data/track_record/` (git-ignored; rows stay after old reports are deleted; the Size column is never stored);
+2. scores each item against Yahoo daily prices, always relative to SPY: a Buy/Add counts as filled once the price trades at or below the top of its entry level, then is followed to its stop or the latest close; a Trim/Exit is a right call when the stock then lagged SPY. Watchlist scores are grouped by Total and Value read. A call repeated in later plans counts once;
+3. passes the results to the action plan (`{data_track_record}`: scorecard plus each open item of the last plan with its status) and to the watchlist screener (`{data_track_record_scores}`).
+
+A group only becomes "usable", and allowed to change how levels, stops, conviction or scores are set, once 10 items from 10 different names have a month of prices. Until then the plan still has to say, for each open item of the last plan, whether it still stands. Check it any time with `uv run python track_record.py`.
 
 ---
 

@@ -8,7 +8,8 @@
 # The text sits under "|-", indented by 4 spaces; line breaks and numbered lists are kept as written.
 # Placeholders are replaced with this run's values: {current_date}, {portfolio}, {watchlist},
 # {risk_profile}, and the pre-fetched data {data_events}, {data_market}, {data_prices},
-# {data_fundamentals_holdings}, {data_fundamentals_watchlist}, {data_portfolio}, {data_status}.
+# {data_fundamentals_holdings}, {data_fundamentals_watchlist}, {data_portfolio}, {data_track_record},
+# {data_track_record_scores}, {data_status}.
 # Each expected output ends with a "Length: ..." limit; keep one, since later tasks read these reports.
 #
 # Check after editing:      uv run python task_profiles.py
@@ -99,6 +100,9 @@ watchlist_screening_task:
     PRE-FETCHED DATA (fundamentals tool for each watchlist name, fetched at run start; call the tool only for a name missing here or showing ERROR):
     {data_fundamentals_watchlist}
 
+    TRACK RECORD of your past scores (computed in code). Only a group marked "usable" may change how you score; then, if a score has misled (e.g. high Totals or Undervalued names lagging SPY), say so in one line under the table and lean less on it. Otherwise ignore it:
+    {data_track_record_scores}
+
   expected_output: |-
     1. One line under the title: "Diversification scores fit with the current portfolio, not business quality."
     2. A ranked table with one row for every name in the Portfolio fit table (Rank | Symbol | Sector | Quality 1–5 | Valuation 1–5 | Value read Undervalued/Fair/Rich/Cheap for a reason | Catalyst 1–5 | Diversification 1–5 | Total | Verdict Shortlist/Keep watching/Remove | Rationale), sorted by Total. Scores are whole numbers; write the symbol alone in the Symbol column. The Rationale is one short sentence naming the evidence behind the valuation read (e.g. "10x forward but EPS estimates cut 8%"); for Keep watching rows a few words are enough.
@@ -139,6 +143,9 @@ risk_assessment_task:
     Data snapshot status:
     {data_status}
 
+    TRACK RECORD of past plans (computed in code; never quote a figure that is not in it). Start the Risks and conflicts section with one line per open item from the last plan: still stands, changed or dropped, and why. Do not repeat a call that was stopped out or keep repeating one that never filled without saying what is different now. Change how you set levels, stops or conviction only from a group marked "usable", and say which one:
+    {data_track_record}
+
   expected_output: |-
     A risk dashboard: weights table with limit status (OK/Warn/Breach), portfolio beta, correlation clusters, event-risk list, cash analysis, max size per proposed buy/add, and a "Red flags" list with the specific rule or bias each one violates. Length: under 400 words outside the tables; one line per red flag.
 
@@ -149,6 +156,9 @@ portfolio_action_plan_task:
 
     Data snapshot status:
     {data_status}
+
+    TRACK RECORD of past plans (computed in code; never quote a figure that is not in it). Start the Risks and conflicts section with one line per open item from the last plan: still stands, changed or dropped, and why. Do not repeat a call that was stopped out or keep repeating one that never filled without saying what is different now. Change how you set levels, stops or conviction only from a group marked "usable", and say which one:
+    {data_track_record}
 
   expected_output: |-
     A markdown report with:

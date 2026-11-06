@@ -32,7 +32,7 @@ contracts), `data/watchlist.csv` (symbol, reason), `data/cash.csv` (account labe
    FCF sustainability, prospective return vs `hurdle_return_pct`, permanent impairment), watchlist screen (best risk-adjusted additions to this portfolio: separate 1–5 quality/valuation/catalyst/diversification
    scores, Total = sum, ≤5 shortlist, "Cheap for a reason" never valued 4–5 or shortlisted), technicals (every symbol), risk, action
    plan (≤5 top actions, stop on every buy/add, no position over `max_position_pct`, Data gaps
-   section, disclaimer). Covered calls exist but are **switched off** (`scripts/toggle_covered_calls.py`).
+   section, disclaimer, a still-stands/changed/dropped line per open item of the last plan). Covered calls exist but are **switched off** (`scripts/toggle_covered_calls.py`).
 3. Events calendar: earnings (Confirmed/Estimated), dividends, macro (FOMC/CPI/jobs/GDP/PCE) only;
    no open short calls while covered calls are off; all times ET; at most 4 macro searches.
 4. Check every report (safety + content rules + plain-English review); a report still failing on its
@@ -48,7 +48,7 @@ contracts), `data/watchlist.csv` (symbol, reason), `data/cash.csv` (account labe
 - Place or claim trades, touch broker accounts, or store/echo account numbers or SSNs.
 - Estimate numbers from memory: figures come from this run's tools or earlier reports, else "N/A (unavailable)".
 - Read websites outside the `hooks.py` allowlist (`SCRAPE_ALLOWLIST=off` lifts it); scrape sites whose terms forbid it (e.g. stockanalysis.com).
-- Commit personal data: `.env`, `data/portfolio.csv`, `data/watchlist.csv`, `data/cash.csv`, `output/`, `.cache/`,
+- Commit personal data: `.env`, `data/portfolio.csv`, `data/watchlist.csv`, `data/cash.csv`, `data/track_record/`, `output/`, `.cache/`,
   `.checkpoints/` are git-ignored. Never put holdings or keys in docs, examples or this file.
 
 **Quality targets.** A full run in roughly 10–15 min; cheap models for table-reading work, stronger
@@ -70,8 +70,9 @@ Run order (Process.sequential + `async_execution`):
 | `models.jsonc` + `models.py` | Model provider (deepseek/openai/anthropic/gemini), tier per agent (fast/research/strong), per-agent overrides, review model; `models.py` builds each agent's LLM (lazy `__getattr__`), checks keys, CLI `models.py [use <provider>]` |
 | `tools/*.py` | `custom:<name>` tools, one `BaseTool` class per file, Yahoo via yfinance; `fundamentals(capital=true)` adds ROIC/incremental ROIC/ROE, capex, SBC, dilution, buybacks, dividends, acquisitions, debt due ≤12 months, coverage, payout vs FCF (snapshot uses it for holdings only; no debt ladder beyond 12 months, SEC backup has none of it) |
 | `market_internals.py` | Breadth (RSP/SPY, QQQE/QQQ, MAGS/RSP, IWM/SPY, % above 50/200 DMA), credit (FRED HY/IG OAS, no key; HYG/IEF fallback), relative leadership vs SPY (last month vs month before → Improving/Steady/Deteriorating); one bulk yfinance download, appended to `{data_market}` |
+| `track_record.py` | Self-improvement loop: at run start parses every past action plan (Top 5 table) and watchlist screen in `output/` into a ledger `data/track_record/*.csv` (no Size column), scores them vs SPY on Yahoo daily prices (Buy/Add: filled at the level? stop hit? result vs SPY; Trim/Exit: right when the stock then lagged), counts a repeated call once, and marks a group "usable" only with 10 items from 10 names that have a month of prices → `{data_track_record}` (plan: scorecard + open items of the last plan) and `{data_track_record_scores}` (watchlist: return by Total and Value read); CLI `uv run python track_record.py` |
 | `market_data.py` | Retries, `.cache/` (prices 15 min, events 6 h, fundamentals 12 h, same day only), Finnhub + SEC EDGAR backups |
-| `data_snapshot.py` | Fetches everything at start → `{data_events}`, `{data_market}`, `{data_prices}`, `{data_fundamentals_holdings/watchlist}`, `{data_portfolio}`, `{data_status}`; saves `output/YYYYMMDD_00_data_snapshot.md` |
+| `data_snapshot.py` | Fetches everything at start → `{data_events}`, `{data_market}`, `{data_prices}`, `{data_fundamentals_holdings/watchlist}`, `{data_portfolio}`, `{data_track_record(_scores)}`, `{data_status}`; saves `output/YYYYMMDD_00_data_snapshot.md` |
 | `guardrails.py` | Input check; content rules; one `check_<task>` per task (`_run_task_checks`: safety → rules → review on the provider's judge model, `GUARDRAIL_JUDGE_MODEL` overrides); `validate_inputs` stops the run if a needed API key is missing; degrade logic; saves rejected reports |
 | `hooks.py` | Blocks trading-like tools, website allowlist (`ALLOWED_DOMAINS`; `allowed_sources_text()` → `{allowed_domains}` in the market agent's backstory; a block returns the reason + list to the agent), flags prompt injection, caps LLM iterations |
 | `observability.py` | Event listener → run folder, summary.md, events.jsonl; `PRICES` table (US$/1M tokens) for cost |
